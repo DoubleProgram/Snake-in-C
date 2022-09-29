@@ -9,14 +9,15 @@
 #include "snake.h"
 #include <time.h>
 
-DIR dir = RIGHT;
-DIR prevDir;
-POS fruit = {-1,-1};
+DIR nextDir;
+DIR currentDir;
+POS fruit = {-1, -1};
 int snakeSize;
 int mapWidth;
 int mapHeight;
 bool gameOver;
 bool fruitEaten;
+const int t_movement = 150000;
 pthread_t inputThread;
 POS* body;
 
@@ -28,22 +29,22 @@ void Play(int _mapWidth, int _mapHeight){
     mapHeight = _mapHeight;
     
     snakeSize = 3;
-    dir = RIGHT;
-    prevDir = RIGHT;
+    nextDir = RIGHT;
+    currentDir = RIGHT;
     body = (POS*) malloc(snakeSize * sizeof(POS));
     gameOver = false;
-    POS snakeTail = {.x = _mapHeight / 2, .y = _mapWidth / 2};
+    POS snakeTail = {.x = _mapHeight / 2, .y = _mapWidth / 2};  // I spawn the snake Tail in the center, but you can spawn it everywhere you do like (you can do it randomly if you wish)
     
     clear();
     for(int i = 0; i < mapHeight; i++)
         for(int j = 0; j < mapWidth; j++){
-            POS p = {i,j};
+            POS p = {i, j};
             Draw(p, '.', 1);
         }
     
     for(int i = 0; i < snakeSize; i++){
-        *(body+i) = (POS){.x = snakeTail.x, .y = snakeTail.y + i};
-        Draw(*(body+i),'*',3);
+        *(body + i) = (POS){.x = snakeTail.x, .y = snakeTail.y + i};
+        Draw(*(body + i), '*', 3);
     }
     SpawnFruit();
     refresh();
@@ -51,7 +52,7 @@ void Play(int _mapWidth, int _mapHeight){
     pthread_create(&inputThread, NULL, UserInput, NULL);
 
     do {
-        usleep(150000);
+        usleep(t_movement);
         Move();
         if (fruit.x == -1 && fruit.y == -1)
             SpawnFruit();
@@ -64,10 +65,10 @@ void Play(int _mapWidth, int _mapHeight){
 void* UserInput(void* args){
     do {
         switch(getch()){
-            case KEY_LEFT: if(prevDir != RIGHT) dir = LEFT; break;
-            case KEY_RIGHT: if(prevDir != LEFT) dir = RIGHT; break;
-            case KEY_DOWN: if(prevDir != UP) dir = DOWN; break;
-            case KEY_UP: if(prevDir != DOWN) dir = UP; break;
+            case KEY_LEFT: if(currentDir != RIGHT) nextDir = LEFT; break;
+            case KEY_RIGHT: if(currentDir != LEFT) nextDir = RIGHT; break;
+            case KEY_DOWN: if(currentDir != UP) nextDir = DOWN; break;
+            case KEY_UP: if(currentDir != DOWN) nextDir = UP; break;
         }
     } while(!gameOver);
 
@@ -75,37 +76,37 @@ void* UserInput(void* args){
 }
 
 void Move(){
-    POS headpos = *(body + snakeSize -1);
+    POS headpos = *(body + snakeSize - 1);
     
-    switch(dir){
+    switch(nextDir){
         case LEFT: headpos.y--; break;
         case RIGHT: headpos.y++; break;
         case UP: headpos.x--; break;
         case DOWN: headpos.x++; break;
     }
-    prevDir = dir;
+    currentDir = nextDir;
 
     if(CanMove(headpos)){
         if(fruitEaten){
             snakeSize++;
-            Draw(headpos,'*',3);
+            Draw(headpos, '*', 3);
         
-            POS* tmp = (POS*) malloc((snakeSize-1) * sizeof(POS));
-            memcpy(tmp,body,(snakeSize-1) * sizeof(POS));
+            POS* tmp = (POS*) malloc((snakeSize - 1) * sizeof(POS));
+            memcpy(tmp, body, (snakeSize - 1) * sizeof(POS));
             body = (POS*) malloc(snakeSize * sizeof(POS));
-            memcpy(body,tmp,(snakeSize-1) * sizeof(POS));
+            memcpy(body, tmp, (snakeSize - 1) * sizeof(POS));
             
-            *(body+snakeSize-1) = headpos;
+            *(body + snakeSize - 1) = headpos;
             fruitEaten = false;
         }
         else{
-            Draw(*body,'.',1);
-            Draw(headpos,'*',3);
+            Draw(*body, '.', 1);
+            Draw(headpos, '*', 3);
             
-            for(int i = 0; i < snakeSize-1; i++)
-                *(body+i) = *(body+i+1);
+            for(int i = 0; i < snakeSize - 1; i++)
+                *(body+i) = *(body + i + 1);
             
-            *(body+snakeSize-1) = headpos;
+            *(body + snakeSize - 1) = headpos;
         }
 
         if(headpos.y == fruit.y && headpos.x == fruit.x){
@@ -119,7 +120,7 @@ void Move(){
 }
 
 bool CanMove(POS p){
-    if(p.x > mapHeight-1 || p.y > mapWidth-1 || p.x < 0 || p.y < 0)
+    if(p.x > mapHeight - 1 || p.y > mapWidth - 1 || p.x < 0 || p.y < 0)
         return false;
 
     for(int i = 0; i < snakeSize-1; i++)
@@ -136,11 +137,11 @@ void SpawnFruit(){
     do {
         x = rand() % mapHeight;
         y = rand() % mapWidth;
-    } while(!FruitCanSpawn(x,y));
+    } while(!FruitCanSpawn(x, y));
 
     fruit.x = x;
     fruit.y = y;
-    Draw(fruit,'o',5);
+    Draw(fruit, 'o', 5);
 }
 
 bool FruitCanSpawn(int x, int y){
@@ -154,6 +155,6 @@ bool FruitCanSpawn(int x, int y){
 
 void Draw(POS p, char c, int color){
     attron(COLOR_PAIR(color));
-    mvaddch(p.x,p.y, c);
+    mvaddch(p.x, p.y, c);
     attroff(COLOR_PAIR(color));
 }
